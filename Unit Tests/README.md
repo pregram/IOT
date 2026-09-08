@@ -11,3 +11,4 @@ stops working.
 | success | `I2Saudio_radio_test` | audio output test - plays radio audio through speaker |
 | success | `I2Saudio_short_TTS_test` | audio output test - plays short text via TTS through speaker |
 | lags & cuts off a bit | `I2Saudio_long_TTS_test` | audio output test - plays long text via TTS through speaker |
+| success | `I2Saudio_local_EdgeTTS_test` | audio output test - streams TTS via local Docker `openai-edge-tts` server |

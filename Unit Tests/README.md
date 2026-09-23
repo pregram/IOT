@@ -18,4 +18,5 @@ stops working.
 | success | `GeminiCall_test/GeminiCallRotation_test.ino` | gemini call test - same as above, with option to change api keys in a round robin bypassing rate limits |
 | success | `CamGemini_test` | cam -> gemini test - gemini takes camera and text input, user views what camera captured via web cam server |
 | success | `Button_test` | button test - pushing button prints 0 otherwise 1 is printed on serial monitor |
-
+| success | `StreamProbe_test/StreamProbe_test.ino` | camera hardware & local stream test - proves local HTTP MJPEG stream (:81/stream) runs smoothly at 15–20 FPS with stable RAM when cloud overhead is removed |
+| success | `FirebasePreviewTest/FirebasePreviewTest.ino` | HTTPS cloud snapshot relay test - captures QVGA frames, converts to Base64, and pushes to Firebase REST endpoint; proves ~40–45 KB TLS handshake overhead caps cloud rate at ~1 FPS |

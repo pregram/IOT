@@ -1,10 +1,8 @@
 /*
-  simpleGeminiCall.ino — Test 1: continuous Serial chat with Gemini.
-  Type a message -> reply printed. Failed requests are KEPT; 'r' resends.
-  Note: a failed Gemini request may still count against quota — 'r' is
-  your explicit choice.
-  Request body + response are handled entirely by ArduinoJson 7.x.
-  If HTTP 404 "model not found": verify the exact id at
+  Gemini text test: chat with Gemini over the Serial Monitor.
+  Type a message and the reply is printed. A failed message is kept and 'r' resends
+  it; resending is manual because a failed request may still count against quota.
+  HTTP 404 "model not found" usually means a stale id; list valid ids at
   https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
 */
 #include <Arduino.h>
@@ -16,7 +14,7 @@
 static const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 static const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 static const char* API_KEY       = "PASTE_YOUR_KEY";
-static const char* MODEL         = "gemini-3.5-flash";   // or "gemini-3.6-flash"
+static const char* MODEL         = "gemini-3.5-flash";
 static const char* SYS_PROMPT    =
   "You are a helpful voice assistant. Reply short (1-3 sentences), plain text only: "
   "no markdown, no lists, no emoji.";
@@ -27,7 +25,6 @@ static int geminiAsk(const char* apiKey, const char* model, const String& prompt
   replyOut = "";
   if (WiFi.status() != WL_CONNECTED) { replyOut = "[error: Wi-Fi down]"; return -1; }
 
-  // ---- request built entirely by ArduinoJson (no manual JSON assembly) ----
   JsonDocument doc;
   doc["systemInstruction"]["parts"][0]["text"] = SYS_PROMPT;
   doc["contents"][0]["role"]  = "user";
@@ -41,7 +38,7 @@ static int geminiAsk(const char* apiKey, const char* model, const String& prompt
                model + ":generateContent?key=" + apiKey;
 
   WiFiClientSecure client;
-  client.setInsecure();                    // encrypted; cert not verified (prototype)
+  client.setInsecure();                    // encrypted but the cert is not verified (prototype)
   HTTPClient http;
   http.setReuse(false);
   http.setTimeout(25000);

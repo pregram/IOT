@@ -1,8 +1,9 @@
 /*
-  ESP32-S3 Sense + MAX98357A (I2S)
-  Library: schreibfaul1/ESP32-audioI2S (v4)
-  Free TTS: Google Translate TTS endpoint via audio.connecttospeech(),
-  chunked under its ~100 char limit, queued for gapless continuous playback.
+  Long-text TTS test with the free Google Translate TTS endpoint
+  (audio.connecttospeech), MAX98357A on I2S, ESP32-audioI2S v4.
+  The endpoint caps a request at ~100 chars, so text is split on word boundaries
+  and queued for back-to-back playback. Result: works, but lags and cuts off a bit
+  between chunks, which is why the game uses the edge-tts relay instead.
 */
 
 #include <WiFi.h>
@@ -10,22 +11,19 @@
 #include <deque>
 #include <vector>
 
-// ---------- Wi-Fi ----------
 const char* ssid     = "*****";
 const char* password = "*****";
 
-// ---------- I2S Pins ----------
 #define I2S_DOUT 7
 #define I2S_BCLK 8
 #define I2S_LRC  9
 
 Audio audio;
 
-// ---------- TTS Queue ----------
 std::deque<String> ttsQueue;
 volatile bool speechDone = true;
 
-// ---------- Mock Gemini Stream Simulation ----------
+// Simulated LLM output arriving in chunks
 String mockParagraph =
   "Welcome human! I am Eye Spy Bot. I spy with my little eye something you "
   "wear on your wrist to check the time. Show it to my camera! Nice try, "
@@ -34,18 +32,17 @@ String mockParagraph =
 const int mockChunkSize = 150;
 int mockPos = 0;
 unsigned long lastMockTime = 0;
-const unsigned long mockInterval = 2000; // simulate a new Gemini chunk every 2s
+const unsigned long mockInterval = 2000; // a new chunk every 2 s
 
-// Split any length of text into TTS-safe chunks (<100 chars), breaking on
-// word boundaries so words are never cut mid-way.
+// Split text into chunks under 100 chars on word boundaries, so words are never cut.
 std::vector<String> splitForTTS(const String &text) {
   std::vector<String> chunks;
-  const int maxLen = 90; // safety margin under Google TTS's 100 char cap
+  const int maxLen = 90; // margin under the endpoint's 100 char cap
   int start = 0;
   int len = text.length();
 
   while (start < len) {
-    while (start < len && text[start] == ' ') start++; // skip leading spaces
+    while (start < len && text[start] == ' ') start++;
     if (start >= len) break;
 
     int end = start + maxLen;
@@ -55,7 +52,7 @@ std::vector<String> splitForTTS(const String &text) {
     }
 
     int splitAt = text.lastIndexOf(' ', end);
-    if (splitAt <= start) splitAt = end; // no space found, hard cut
+    if (splitAt <= start) splitAt = end; // no space found: hard cut
 
     chunks.push_back(text.substring(start, splitAt));
     start = splitAt;
@@ -63,8 +60,6 @@ std::vector<String> splitForTTS(const String &text) {
   return chunks;
 }
 
-// Feed any length of incoming text (e.g. a Gemini response fragment) into
-// the playback queue as safely-sized TTS chunks.
 void enqueueGeminiResponse(const String &text) {
   std::vector<String> parts = splitForTTS(text);
   for (auto &p : parts) {
@@ -72,7 +67,6 @@ void enqueueGeminiResponse(const String &text) {
   }
 }
 
-// Simulates Gemini streaming ~150-char chunks into the system over time.
 void simulateGeminiStream() {
   if (mockPos >= (int)mockParagraph.length()) return;
   if (millis() - lastMockTime < mockInterval) return;
@@ -91,23 +85,20 @@ void simulateGeminiStream() {
   enqueueGeminiResponse(piece);
 }
 
-// ---------- ESP32-audioI2S v4 callback ----------
-// v4 replaced the old weak-linked globals (audio_eof_speech, audio_info, ...)
-// with ONE unified callback registered via Audio::audio_info_callback.
-// Google-TTS playback ends like any other stream, so it's reported as evt_eof.
+// ESP32-audioI2S v4 replaced the weak-linked globals (audio_eof_speech, audio_info,
+// ...) with one callback registered via Audio::audio_info_callback. Google TTS
+// playback ends like any stream, so it arrives as evt_eof.
 void my_audio_info(Audio::msg_t m) {
   switch (m.e) {
     case Audio::evt_eof:
       speechDone = true;
       break;
     default:
-      break; // evt_info, evt_bitrate, etc. - ignored here
+      break; // other events ignored
   }
 }
 
 // True once every queued chunk has been spoken and nothing is playing.
-// Use this in your real project to know when it's safe to go listen
-// for the user's response before calling Gemini again.
 bool isDoneSpeaking() {
   return speechDone && ttsQueue.empty();
 }
@@ -124,7 +115,7 @@ void setup() {
   }
   Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
 
-  Audio::audio_info_callback = my_audio_info; // register v4 event callback
+  Audio::audio_info_callback = my_audio_info;
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
   audio.setVolume(14);

@@ -1,0 +1,679 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* SnapRiddle surfaces - LIGHT */
+  --sr-bg: #eef1f6;
+  --sr-bg-2: #f7f9fc;
+  --sr-card: #ffffff;
+  --sr-glass: rgba(255, 255, 255, 0.82);
+  --sr-glass-strong: rgba(255, 255, 255, 0.96);
+  --sr-line: rgba(15, 23, 42, 0.1);
+  --sr-fg: #0f172a;
+  --sr-fg-2: #475569;
+  --sr-fg-3: #7c8aa0;
+  --sr-nav: rgba(255, 255, 255, 0.88);
+  --sr-well: rgba(15, 23, 42, 0.05);
+  --sr-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.28);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  /* SnapRiddle surfaces - DARK (default game-show palette) */
+  --sr-bg: #0b1120;
+  --sr-bg-2: #10162b;
+  --sr-card: #141c33;
+  --sr-glass: rgba(30, 41, 59, 0.66);
+  --sr-glass-strong: rgba(20, 28, 51, 0.94);
+  --sr-line: rgba(255, 255, 255, 0.1);
+  --sr-fg: #f1f5f9;
+  --sr-fg-2: #a5b0c2;
+  --sr-fg-3: #6b7a94;
+  --sr-nav: rgba(11, 17, 32, 0.85);
+  --sr-well: rgba(2, 6, 23, 0.55);
+  --sr-shadow: 0 22px 55px -12px rgba(0, 0, 0, 0.55);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background: var(--sr-bg);
+    color: var(--sr-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ── SnapRiddle custom utilities ─────────────────────────────────────── */
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .sr-glass {
+    background: var(--sr-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--sr-line);
+  }
+  .sr-card {
+    background: var(--sr-card);
+    border: 1px solid var(--sr-line);
+  }
+  .sr-well {
+    background: var(--sr-well);
+  }
+  /* Fixed-dark surfaces (lightbox, caption editor, chips) that must keep
+     light text in LIGHT mode too - re-points the sr palette on descendants. */
+  .dark-dialog {
+    --sr-fg: #f1f5f9;
+    --sr-fg-2: #cbd5e1;
+    --sr-fg-3: #94a3b8;
+  }
+  /* ✏️ attention pulse for the "add caption" pencil on uncaptioned polaroids */
+  .caption-invite {
+    animation: caption-invite 2.6s ease-in-out infinite;
+  }
+  @keyframes caption-invite {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.45);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(139, 92, 246, 0);
+    }
+  }
+  .text-sr-2 {
+    color: var(--sr-fg-2);
+  }
+  .text-sr-3 {
+    color: var(--sr-fg-3);
+  }
+  .text-fg {
+    color: var(--sr-fg);
+  }
+  .sr-shadow {
+    box-shadow: var(--sr-shadow);
+  }
+  .neon-emerald {
+    box-shadow: 0 0 32px -6px rgba(16, 185, 129, 0.55);
+  }
+  .neon-gold {
+    box-shadow: 0 0 34px -6px rgba(245, 158, 11, 0.6);
+  }
+  .neon-doom {
+    box-shadow: 0 0 34px -6px rgba(239, 68, 68, 0.6);
+  }
+  .neon-violet {
+    box-shadow: 0 0 28px -8px rgba(139, 92, 246, 0.55);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+}
+
+/* Scrollbars - game-styled */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.35);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.7);
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────────── */
+
+@keyframes sr-shutter {
+  0% {
+    opacity: 0.95;
+    background: #ffffff;
+  }
+  100% {
+    opacity: 0;
+    background: transparent;
+  }
+}
+@keyframes sr-scale-in {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sr-fade-up {
+  0% {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes sr-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sr-floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes sr-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+@keyframes sr-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+@keyframes sr-doom-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 22px -8px rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 46px -4px rgba(239, 68, 68, 0.9);
+  }
+}
+@keyframes sr-vibrate {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-1.2deg);
+  }
+  75% {
+    transform: rotate(1.2deg);
+  }
+}
+
+.animate-shutter {
+  animation: sr-shutter 0.45s ease-out forwards;
+}
+.animate-scale-in {
+  animation: sr-scale-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-fade-up {
+  animation: sr-fade-up 0.5s ease-out both;
+}
+.animate-pop {
+  animation: sr-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-floaty {
+  animation: sr-floaty 3s ease-in-out infinite;
+}
+.animate-shake {
+  animation: sr-shake 0.5s ease-in-out;
+}
+.animate-blink {
+  animation: sr-blink 1.1s ease-in-out infinite;
+}
+.animate-doom-pulse {
+  animation: sr-doom-pulse 1.6s ease-in-out infinite;
+}
+.animate-vibrate {
+  animation: sr-vibrate 0.4s linear infinite;
+}
+@keyframes sr-shimmer {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(430%);
+  }
+}
+.animate-sr-shimmer {
+  animation: sr-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes sr-float-up {
+  0% {
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    transform: translate(calc(var(--dx) * 0.12), -6vh) scale(1.15) rotate(calc(var(--rot) * 0.2));
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), -62vh) scale(var(--sc)) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+.emoji-burst {
+  animation: sr-float-up var(--dur, 2.6s) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+.delay-75ms {
+  animation-delay: 75ms;
+}
+.delay-150ms {
+  animation-delay: 150ms;
+}
+.delay-300ms {
+  animation-delay: 300ms;
+}
+
+/* ── Round-4 detail animations ──────────────────────────────────────── */
+
+/* Landing hero aurora orbs */
+@keyframes sr-aurora {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(34px, 26px) scale(1.14);
+  }
+  66% {
+    transform: translate(-26px, 12px) scale(0.94);
+  }
+}
+.animate-aurora {
+  animation: sr-aurora 11s ease-in-out infinite;
+}
+.animate-aurora-delayed {
+  animation: sr-aurora 13s ease-in-out 1.4s infinite reverse;
+}
+
+/* Hero gradient text shimmer */
+@keyframes sr-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+.text-shimmer {
+  background-size: 200% auto;
+  animation: sr-shimmer 6s linear infinite;
+}
+
+/* Victory champion card shine sweep */
+@keyframes sr-shine {
+  0% {
+    transform: translateX(0) skewX(-14deg);
+  }
+  55%,
+  100% {
+    transform: translateX(360%) skewX(-14deg);
+  }
+}
+.shine-sweep {
+  animation: sr-shine 2.8s ease-in-out 0.9s infinite;
+}
+
+/* Spotlight overlay breathing */
+@keyframes sr-spot {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-spot {
+  animation: sr-spot 2.2s ease-in-out infinite;
+}
+
+/* ── Round-5: Photo Moments polaroid gallery ────────────────────────── */
+
+/* Polaroid card - paper frame, tilted, taped. Tilt is driven by --tilt so
+   the gallery can stagger rotations per card. */
+.polaroid {
+  position: relative;
+  display: block;
+  width: 10rem;
+  padding: 0.4rem 0.4rem 0;
+  border-radius: 0.25rem;
+  background: #fdfcf7;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 10px 22px -8px rgba(0, 0, 0, 0.45);
+  transform: rotate(var(--tilt, -2deg));
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.polaroid:hover,
+.polaroid:focus-visible {
+  transform: rotate(0deg) translateY(-6px) scale(1.04);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.25),
+    0 18px 34px -10px rgba(245, 158, 11, 0.4);
+  z-index: 5;
+}
+.polaroid-static:hover {
+  transform: rotate(-2deg);
+}
+.polaroid-frame {
+  display: block;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #0f172a;
+  position: relative;
+}
+.polaroid-frame img {
+  display: block;
+  filter: saturate(1.06) contrast(1.02);
+}
+.polaroid-tape {
+  position: absolute;
+  top: -0.55rem;
+  left: 50%;
+  width: 3.2rem;
+  height: 1rem;
+  translate: -50% 0;
+  rotate: -3deg;
+  background: rgba(250, 204, 21, 0.45);
+  border-left: 1px dashed rgba(255, 255, 255, 0.55);
+  border-right: 1px dashed rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(1px);
+  z-index: 2;
+}
+.polaroid-zoom {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.45);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.polaroid:hover .polaroid-zoom,
+.polaroid:focus-visible .polaroid-zoom {
+  opacity: 1;
+}
+
+/* Horizontal gallery scrollbar (Photo Moments strip) */
+.moments-strip {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.5) transparent;
+}
+.moments-strip::-webkit-scrollbar {
+  height: 6px;
+}
+.moments-strip::-webkit-scrollbar-track {
+  background: transparent;
+}
+.moments-strip::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.45);
+}
+
+/* ── Round-5: phone rally flash (YOUR TURN attention banner) ────────── */
+@keyframes sr-rally {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(16, 185, 129, 0.55),
+      0 0 24px -6px rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(16, 185, 129, 0),
+      0 0 34px -2px rgba(234, 179, 8, 0.75);
+  }
+}
+.rally-flash {
+  animation:
+    sr-rally 1.1s ease-in-out infinite,
+    sr-pop 0.3s ease-out;
+}
+
+/* ── Round-8: phone nudge alarm (HOST SAYS HURRY UP - rose urgency) ─── */
+@keyframes sr-nudge {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(244, 63, 94, 0.6),
+      0 0 26px -6px rgba(244, 63, 94, 0.65);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9px rgba(244, 63, 94, 0),
+      0 0 38px -2px rgba(251, 113, 133, 0.8);
+  }
+}
+.nudge-flash {
+  animation:
+    sr-nudge 0.85s ease-in-out infinite,
+    sr-pop 0.3s ease-out;
+}
+
+/* ── Replay Highlights slideshow ─────────────────────────────────────── */
+@keyframes sr-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.12) translate(-1.5%, -2%);
+  }
+}
+.animate-kenburns {
+  animation: sr-kenburns 3.4s ease-out forwards;
+}
+
+@keyframes sr-slide-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-slide-progress {
+  animation: sr-slide-progress 3s linear forwards;
+}
+
+/* ── kbd key-cap chips (replay keyboard hints) ───────────────────────── */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  padding: 0.1em 0.45em;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ── Round-10: handwritten polaroid captions (player-typed memories) ─── */
+.polaroid-caption {
+  font-family: var(--font-display, ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #7c3aed;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  word-break: break-word;
+}
+
+/* ── Round-10: phone sound-cue flash (host fired a sound-board jingle) ── */
+@keyframes sr-cue {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0.55),
+      0 0 24px -6px rgba(245, 158, 11, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(245, 158, 11, 0),
+      0 0 34px -2px rgba(249, 115, 22, 0.75);
+  }
+}
+.cue-flash {
+  animation:
+    sr-cue 0.9s ease-in-out infinite,
+    sr-pop 0.3s ease-out;
+}
+
+/* css-watch-probe */

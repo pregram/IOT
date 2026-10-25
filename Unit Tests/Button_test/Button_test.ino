@@ -1,36 +1,25 @@
 /*
-  XIAO ESP32-S3 Button Serial Test
-  --------------------------------------------------
-  Hardware Wiring:
-  - Pushbutton Leg 1: Connected to GPIO 6 (pushbutton)
-  - Pushbutton Leg 2: Connected to GPIO 5 (refpin / Virtual Ground)
-  
-  Behavior:
-  - GPIO 5 is set to OUTPUT LOW (Virtual GND).
-  - GPIO 6 uses INPUT_PULLUP.
-  - Serial Monitor outputs '1' when released, '0' when pressed.
+  Button test (XIAO ESP32-S3). Wiring: leg 1 -> GPIO 6, leg 2 -> GPIO 5.
+  GPIO 5 is driven LOW as a virtual ground, so the button needs no GND wire.
+  Pass: Serial Monitor prints 1 while released and 0 while pressed.
 */
 
-const int pushbutton = 6; // Pin connected to button
-const int refpin = 5;     // Pin acting as Virtual Ground (GND)
+const int pushbutton = 6;
+const int refpin = 5;
 
 void setup() {
   Serial.begin(115200);
 
-  // Configure refpin (Pin 5) as Virtual Ground
   pinMode(refpin, OUTPUT);
   digitalWrite(refpin, LOW);
 
-  // Configure pushbutton pin with internal pull-up resistor
   pinMode(pushbutton, INPUT_PULLUP);
 }
 
 void loop() {
-  // Read state: HIGH (1) when not pressed, LOW (0) when pressed
   int buttonState = digitalRead(pushbutton);
 
-  // Print raw value directly to Serial
   Serial.println(buttonState);
 
-  delay(100); // Prevents rapid scrolling in Serial Monitor
+  delay(100); // slows the Serial Monitor scroll
 }

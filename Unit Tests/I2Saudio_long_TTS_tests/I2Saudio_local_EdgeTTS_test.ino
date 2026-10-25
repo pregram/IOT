@@ -4,37 +4,34 @@
 #include <LittleFS.h>
 #include "Audio.h"
 
-// ------------------------- USER CONFIG -------------------------
+// User config
 static const char* WIFI_SSID     = "S";
 static const char* WIFI_PASSWORD = "P";
 static const char* TTS_HOST_IP   = "H";   // PC's LAN IP running Docker
 static const uint16_t TTS_PORT   = 5050;
-static const char* TTS_API_KEY   = "not-needed";      // REQUIRE_API_KEY=False
+static const char* TTS_API_KEY   = "not-needed";      // container runs with REQUIRE_API_KEY=False
 static const char* DEFAULT_VOICE = "en-GB-RyanNeural";
 static const float  TTS_SPEED    = 1.0f;
 
-// Set to 1 ONLY after the GET curl test succeeds (see instructions).
-// Gives near-instant playback start; POST+LittleFS is the fallback path.
+// Set to 1 only after the GET curl test succeeds: near-instant playback start.
+// POST + LittleFS is the fallback path.
 #define TTS_USE_GET_STREAM 0
 
 #define I2S_DOUT 7
 #define I2S_BCLK 8
 #define I2S_LRC  9
 
-// ------------------------- GLOBALS -----------------------------
 static Audio audio;
 static String serialBuffer;
 static bool   busy       = false;
 static int    activeSlot = -1;                                  // last downloaded slot
 
-// Two alternating files: never rewrite a file the decoder may hold open.
+// Two alternating files: never rewrite a file the decoder may still hold open.
 static const char* TTS_FILE[2] = { "/tts_a.mp3", "/tts_b.mp3" };
 
-// ------------------- Library debug callbacks -------------------
 void audio_info(const char* info)    { Serial.printf("[audio] %s\n", info); }
 void audio_eof_mp3(const char* info) { Serial.printf("[audio] playback finished: %s\n", info); }
 
-// --------------------------- Helpers ---------------------------
 static String urlEncode(const String& in) {
   static const char* hex = "0123456789ABCDEF";
   String out; out.reserve(in.length() * 3 + 1);
@@ -73,8 +70,8 @@ static String buildRequestBody(const String& text, const String& voice) {
   return body;
 }
 
-// Stop playback and make sure the library has fully released its
-// internal file handle / decoder state before we touch the FS.
+// Make sure the library has fully released its file handle and decoder state
+// before touching the filesystem.
 static void stopAudioSafely() {
   if (audio.isRunning()) {
     audio.stopSong();
@@ -86,7 +83,7 @@ static void stopAudioSafely() {
   }
 }
 
-// POST text -> stream MP3 into LittleFS. Hardened download loop.
+// POST text -> stream the MP3 into LittleFS.
 static bool downloadSpeech(const String& text, const String& voice, const char* outPath) {
   if (WiFi.status() != WL_CONNECTED) { Serial.println("[TTS] Wi-Fi down."); return false; }
 
@@ -157,20 +154,19 @@ static bool downloadSpeech(const String& text, const String& voice, const char* 
   return total > 0;
 }
 
-// --------------------------- Speak -----------------------------
 static void speak(const String& text) {
   if (text.isEmpty() || busy) return;
   busy = true;
 
 #if TTS_USE_GET_STREAM
-  if (text.length() <= 700) {                  // GET URLs shouldn't get huge
+  if (text.length() <= 700) {                  // keep GET URLs short
     stopAudioSafely();
     String url = "http://" + String(TTS_HOST_IP) + ":" + String(TTS_PORT) +
                  "/v1/audio/speech?text=" + urlEncode(text) +
                  "&voice=" + DEFAULT_VOICE +
                  "&response_format=mp3&speed=" + String(TTS_SPEED, 2);
-    // If the lib can't detect the codec (no file extension in URL), append
-    // "&ext=.mp3" — unknown query params are ignored by the server.
+    // The library detects the codec from the URL extension; the server ignores unknown
+    // query params, so append "&ext=.mp3".
     Serial.printf("[TTS] GET-stream: %s\n", url.c_str());
     if (audio.connecttohost(url.c_str())) { activeSlot = -1; busy = false; return; }
     Serial.println("[TTS] GET stream failed, falling back to POST+LittleFS.");
@@ -178,7 +174,7 @@ static void speak(const String& text) {
 #endif
 
   stopAudioSafely();
-  int slot = (activeSlot == 0) ? 1 : 0;        // ALWAYS write the other file
+  int slot = (activeSlot == 0) ? 1 : 0;        // always write the other file
   if (downloadSpeech(text, DEFAULT_VOICE, TTS_FILE[slot])) {
     activeSlot = slot;
     if (!audio.connecttoFS(LittleFS, TTS_FILE[slot])) {
@@ -190,9 +186,8 @@ static void speak(const String& text) {
   busy = false;
 }
 
-// --------------------------- Setup -----------------------------
 void setup() {
-  Serial.setRxBufferSize(2048);                // before begin(): survive pasted text
+  Serial.setRxBufferSize(2048);                // before begin(), so pasted text fits
   Serial.begin(115200);
   delay(300);
   Serial.println("\n=== ESP32-S3 Local TTS Player v2 ===");
@@ -223,13 +218,12 @@ void setup() {
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
   audio.setVolume(15);                         // 0..21
-  audio.setConnectionTimeout(4000, 8000);      // used by connecttohost() path
+  audio.setConnectionTimeout(4000, 8000);      // used by the connecttohost() path
 
   speak("Hello. Local text to speech is online and ready for input.");
   Serial.println("[SYS] Ready. Type text + Enter in Serial Monitor.");
 }
 
-// --------------------------- Loop ------------------------------
 void loop() {
   audio.loop();                                // non-blocking decode pump
 

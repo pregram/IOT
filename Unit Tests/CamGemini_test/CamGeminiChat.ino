@@ -1,23 +1,14 @@
 /*
-  GeminiVisionTest.ino — CameraWebServer UI + single-turn Gemini.  (v2.2)
-  ----------------------------------------------------------------------------
-  v2.2:
-   - DISABLE_THINKING defaults to 0 (thinkingConfig field NOT sent - matches
-     the v1 request shape that returned 200; the field is a suspect in the
-     current 400 INVALID_ARGUMENT).
-   - New serial cmd 'gencfg' toggles the two suspect generationConfig fields
-     on/off and prints the resulting body shape; use it + one 'snap' to
-     bisect any future 400 in a single round.
-   - Error paths print first 300 bytes of Google's raw response body.
-   - Diagnostics per call: finishReason + output/thinking token counts.
-   - snap appends true capture resolution (WxH) to the prompt.
-   - Reply joins ALL parts[] entries.
-
-  Folder must also contain: app_httpd.cpp, camera_index.h, board_config.h,
-  camera_pins.h (from the CameraWebServer example).
-  Browser: http://<board-ip>/ (tune) and /stream (live view).
-  Serial: any text = Gemini call | 'snap <prompt>' | 'gencfg' | 'r' | 'help'
-  Requires: ArduinoJson 7.x, PSRAM = OPI PSRAM, esp32 core 3.x.
+  Camera -> Gemini vision test, on top of Espressif's CameraWebServer UI.
+  Serial: any text = Gemini call | 'snap <prompt>' = send a frame + prompt |
+  'gencfg' | 'r' = resend | 'help'.
+  'gencfg' toggles the two generationConfig fields that were suspects for a 400
+  INVALID_ARGUMENT (thinkingConfig, maxOutputTokens), so one 'snap' per setting
+  bisects the failing field. Error paths print the first 300 bytes of the raw body.
+  The folder also needs app_httpd.cpp, camera_index.h, board_config.h and
+  camera_pins.h from the CameraWebServer example.
+  Browser: http://<board-ip>/ to tune the camera, /stream for live view.
+  Needs PSRAM = OPI PSRAM.
 */
 #include <Arduino.h>
 #include <WiFi.h>
@@ -31,22 +22,22 @@
 void startCameraServer();
 void setupLedFlash();
 
-// ---------------- USER CONFIG ----------------
+// user config
 static const char* WIFI_SSID     = "SSID";
 static const char* WIFI_PASSWORD = "PWD";
 static const char* API_KEY       = "KEY";
-static const char* MODEL         = "gemini-3.6-flash";   // or "gemini-3.6-flash"
+static const char* MODEL         = "gemini-3.6-flash";
 static const char* SYS_PROMPT    =
   "You are a helpful assistant. Reply short (1-3 sentences), plain text only: "
   "no markdown, no lists, no emoji.";
 
-static const int GEMINI_MAX_TOKENS = 1024;  // reply-length cap only (NOT quota)
-static bool useThinkingCfg   = false;       // toggled by 'gencfg' (start = OFF)
-static bool useMaxOutTokens  = true;        // toggled by 'gencfg' (start = ON, 1024)
+static const int GEMINI_MAX_TOKENS = 1024;  // reply-length cap only, not quota
+static bool useThinkingCfg   = false;       // toggled by 'gencfg' (starts off)
+static bool useMaxOutTokens  = true;        // toggled by 'gencfg' (starts on)
 
 static String lastPrompt, lastImgB64, buf;
 
-// ---------------- camera (defaults exactly per CamWebServer example) ----------------
+// camera defaults as in the CameraWebServer example
 static bool camInit() {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -120,7 +111,6 @@ static String captureB64(int* outW, int* outH) {
   return s;
 }
 
-// ---------------- request body (ArduinoJson only) ----------------
 static String buildBody(const String& prompt, const String* imgB64) {
   JsonDocument doc;
   doc["systemInstruction"]["parts"][0]["text"] = SYS_PROMPT;
@@ -150,7 +140,6 @@ static void printGenCfg() {
                 useThinkingCfg ? "ON" : "OFF");
 }
 
-// ---------------- Gemini ----------------
 static int geminiCall(const String& prompt, const String* imgB64, String& replyOut) {
   replyOut = "";
   if (WiFi.status() != WL_CONNECTED) { replyOut = "[error: Wi-Fi down]"; return -1; }
@@ -241,7 +230,6 @@ static void printHelp() {
                  "'gencfg' toggle generation fields | 'r' retry | 'help'");
 }
 
-// ---------------- sketch ----------------
 void setup() {
   Serial.setRxBufferSize(2048);
   Serial.begin(115200);

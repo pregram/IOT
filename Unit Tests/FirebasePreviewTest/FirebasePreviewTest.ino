@@ -1,78 +1,41 @@
-// ═══════════════════════════════════════════════════════════════════════
-//  FirebasePreviewTest.ino — standalone HTTPS camera→RTDB stress sketch
-//  XIAO ESP32-S3 Sense · SnapRiddle architectural-review deliverable
-// ─────────────────────────────────────────────────────────────────────
-//  PURPOSE
-//    Isolates and MEASURES the exact path the game's cloud preview uses,
-//    on a bare sketch with zero game logic, so the memory story behind the
-//    ~1 FPS cloud snapshot relay is reproducible in front of an audience:
+// Cloud snapshot stress test: camera (QVGA JPEG) -> base64 -> JSON
+// {"img":"<b64>","ts":<epoch-ms>} -> HTTPS PUT to
+// <FIREBASE_URL>/hardware_session_preview.json, with per-cycle serial telemetry.
+// It measures why a cloud preview over HTTPS tops out around 1 FPS on this board,
+// with no game logic in the way. (The game no longer uses this cloud preview path;
+// the host page shows the board's direct MJPEG stream instead.)
 //
-//      OV2640 (QVGA 320x240 JPEG)
-//        → mbedtls base64 encode            (~11-27 KB chars)
-//        → JSON payload {"img":"<b64>","ts":<epoch-ms>}
-//        → outbound HTTPS PUT (WiFiClientSecure = mbedTLS)
-//            https://<your-project>/hardware_session_preview.json
-//        → per-cycle serial telemetry + heap guard
+// Every upload opens a fresh WiFiClientSecure and closes it, so each cycle pays a
+// full TCP+TLS handshake (~40-45 KB of mbedTLS buffers). A faster upload rate does
+// not make a frame cheaper; it removes the heap's recovery time between handshakes,
+// which is what collapses small boards. Watch the heap telemetry.
 //
-//    The payload is BYTE-IDENTICAL to production uploadPreviewFrame()
-//    (SnapRiddle_HW/cloud_link.h, line ~411), so the SnapRiddle host
-//    screen's "CLOUD PREVIEW" panel will live-display these frames if this
-//    sketch runs against the same Firebase project — a free end-to-end
-//    demo. Avoid running it during a real game (it would overwrite the
-//    live preview node).
+// Expected: QVGA q12 frames ~8-20 KB (base64 ~11-27 KB). The handshake dominates
+// (~0.3-1.5 s), so even at UPLOAD_INTERVAL_MS=100 the achieved rate is ~0.5-1.5 FPS.
+// "largest internal block" shrinks as the heap fragments (free is not usable).
+// Below 30 KB free the sketch warns and skips cycles instead of crashing.
 //
-//  STRESS DESIGN (the part the lecturer asked to see demonstrated)
-//    Every upload opens a FRESH WiFiClientSecure and closes it
-//    ("Connection: close") — the same pattern the game's Gemini judge uses
-//    (gemini_judge.h geminiVisionCall()). Each cycle therefore pays a full
-//    TCP+TLS handshake (~40-45 KB of mbedTLS buffers, semi-contiguous),
-//    exactly the allocation that v1.4.1 had to protect with fbDrop().
-//    Raising the upload rate does NOT raise the frame cost — it removes
-//    the heap's recovery time between handshakes, which is what actually
-//    collapses small boards. Watch the heap telemetry.
-//
-//  EXPECTED RESULTS (matches the numbers cited in the HLD / review)
-//    · QVGA q12 JPEG frames  ≈ 8-20 KB  → base64 ≈ 11-27 KB chars
-//    · cycle cost is dominated by the TLS handshake (~0.3-1.5 s on typical
-//      WiFi) — so even at UPLOAD_INTERVAL_MS=100 ("fast") the achieved
-//      rate is ≈ 0.5-1.5 FPS, NOT 10 FPS
-//    · free heap oscillates by the size of the TLS context + payload
-//      temporaries each cycle; watch "largest internal block" shrink as
-//      fragmentation sets in (free ≠ usable — the v1.4.1 lesson)
-//    · below 30 KB free the sketch prints the RAM warning and skips
-//      cycles instead of crashing (production preview additionally skips
-//      below 45 KB — PREVIEW_MIN_HEAP — but this test deliberately rides
-//      closer to the edge to show what happens)
-//
-//  BOARD SETTINGS (identical to FLASHING_GUIDE.md §3)
-//    Board: XIAO_ESP32S3 · PSRAM: OPI PSRAM · Flash 8MB
-//    Partition: 8M with spiffs · esp32 core 3.x
-//
-//  FIREBASE PREREQ
-//    The database rules must allow writes (test mode, or at least the
-//    hardware_session_preview node). The URL format is the one shown at
-//    the top of Firebase console → Realtime Database (same value as
-//    SnapRiddle_HW/config.h §2 — FB_DB_URL).
-// ═══════════════════════════════════════════════════════════════════════
+// Board: XIAO_ESP32S3, PSRAM OPI, 8MB with spiffs. The database rules must allow
+// writes to hardware_session_preview. Don't run it during a real game.
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>     // WiFiClientSecure = mbedTLS on ESP32.
-#include <esp_camera.h>           //   A raw client (instead of HTTPClient)
-#include <mbedtls/base64.h>       //   gives us per-phase ms (TLS connect /
-#include <esp_timer.h>            //   write / response) that HTTPClient
-#include <esp_heap_caps.h>        //   lumps together — needed for telemetry.
+#include <WiFiClientSecure.h>     // raw client instead of HTTPClient: gives
+#include <esp_camera.h>           // per-phase timings (TLS connect / write /
+#include <mbedtls/base64.h>       // response) that HTTPClient lumps together
+#include <esp_timer.h>
+#include <esp_heap_caps.h>
 #include <time.h>
 #include <sys/time.h>
 
 #define TEST_FW_VERSION "FirebasePreviewTest-1.0"
 
-// ── 1 · CREDENTIALS & TARGET — EDIT ALL THREE BEFORE FLASHING ─────────
+// Credentials and target: edit all three before flashing.
 static const char* WIFI_SSID     = "X";
 static const char* WIFI_PASSWORD = "*";
-//  RTDB root URL, https:// prefix, NO trailing slash, no path.
+// RTDB root URL: https:// prefix, no trailing slash, no path.
 static const char* FIREBASE_URL  = "https://default-rtdb.firebaseio.com";
 
-// ── 2 · XIAO ESP32-S3 Sense camera pin map (verified, pins_board.h) ───
+// XIAO ESP32-S3 Sense camera pins (same as the firmware's pins_board.h)
 #define PWDN_GPIO_NUM  -1
 #define RESET_GPIO_NUM -1
 #define XCLK_GPIO_NUM  10
@@ -90,24 +53,22 @@ static const char* FIREBASE_URL  = "https://default-rtdb.firebaseio.com";
 #define HREF_GPIO_NUM  47
 #define PCLK_GPIO_NUM  13
 
-// ── 3 · tunables ──────────────────────────────────────────────────────
-//  Upload pacing, start-of-cycle to start-of-cycle. EDITED AT RUNTIME by
-//  the serial commands:  slow=1000 · medium=200 · fast=100 (ms).
-static uint32_t UPLOAD_INTERVAL_MS = 1000;          // 1 FPS baseline (default)
+// Upload pacing, start-of-cycle to start-of-cycle. Changed at runtime by the serial
+// commands slow=1000, medium=200, fast=100 (ms).
+static uint32_t UPLOAD_INTERVAL_MS = 1000;          // 1 FPS baseline
 
 static const char*    FB_PUT_PATH       = "/hardware_session_preview.json";
-static const uint32_t RAM_WARN_HEAP     = 30000;    // the 30 KB guard
-static const uint32_t CONNECT_TIMEOUT_S = 6;        // TLS handshake budget (s) —
-                                                    // parity: cloud_link.h fbBegin()
-static const uint32_t WRITE_TIMEOUT_MS  = 8000;     // hard deadline for the PUT body
-static const uint32_t RESPONSE_TIMEOUT_MS = 8000;   // hard deadline for the status line
-static const uint32_t HEARTBEAT_MS      = 5000;     // rolling stats print
+static const uint32_t RAM_WARN_HEAP     = 30000;
+static const uint32_t CONNECT_TIMEOUT_S = 6;        // TLS handshake budget (s),
+                                                    // same as the firmware's fbBegin()
+static const uint32_t WRITE_TIMEOUT_MS  = 8000;
+static const uint32_t RESPONSE_TIMEOUT_MS = 8000;
+static const uint32_t HEARTBEAT_MS      = 5000;
 
-// ── 4 · runtime state ─────────────────────────────────────────────────
 static String   FB_HOST;                 // parsed out of FIREBASE_URL in setup()
-static bool     g_paused       = false;  // "stop" command
-static const char* g_paceName  = "slow"; // label for the current pacing
-static uint32_t g_lastCycleMs   = 0;      // start of the last upload cycle
+static bool     g_paused       = false;
+static const char* g_paceName  = "slow";
+static uint32_t g_lastCycleMs   = 0;
 static uint32_t g_cycleNum      = 0;
 static uint32_t g_okCount       = 0;
 static uint32_t g_failCount     = 0;
@@ -124,8 +85,7 @@ static inline uint32_t msSince(int64_t t0us) {
   return (uint32_t)((esp_timer_get_time() - t0us) / 1000LL);
 }
 
-// ── 5 · camera init — QVGA 320x240 (the memory-safe spec), otherwise ──
-//       byte-parity with production camera_srv.h camInit()
+// QVGA 320x240 (the memory-safe size); otherwise the same settings as the firmware
 static bool camInit() {
   camera_config_t config = {};
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -142,9 +102,9 @@ static bool camInit() {
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode    = CAMERA_GRAB_LATEST;
   config.fb_location  = CAMERA_FB_IN_PSRAM;
-  config.frame_size   = FRAMESIZE_QVGA;   // ← TEST SPEC: 320x240, memory-safe
-  config.jpeg_quality = 12;               // production quality (larger than q15)
-  config.fb_count     = 2;                // double buffer, production parity
+  config.frame_size   = FRAMESIZE_QVGA;
+  config.jpeg_quality = 12;               // same quality as the firmware
+  config.fb_count     = 2;
 
   if (!psramFound()) {
     config.frame_size  = FRAMESIZE_QVGA;
@@ -164,9 +124,8 @@ static bool camInit() {
   return true;
 }
 
-// ── 6 · capture → base64 (timed) — parity with production captureB64() ─
-//       gemini_judge.h: mbedtls_base64_encode into malloc'd buffer with a
-//       ps_malloc fallback, then a String copy while the frame is held.
+// Capture -> base64, timed. Internal heap first with a PSRAM fallback, then a String
+// copy while the frame is held, to reproduce the allocation pattern being measured.
 static bool captureB64Timed(String& b64Out, uint32_t& capMs, uint32_t& b64Ms,
                             size_t& jpgBytes, size_t& b64Chars) {
   int64_t t0 = esp_timer_get_time();
@@ -176,8 +135,8 @@ static bool captureB64Timed(String& b64Out, uint32_t& capMs, uint32_t& b64Ms,
   capMs = msSince(t0);
 
   size_t need = ((fb->len + 2) / 3) * 4 + 1;          // base64 upper bound
-  char* out = (char*)malloc(need);                    // internal heap first…
-  if (!out) out = (char*)ps_malloc(need);             // …PSRAM as the fallback
+  char* out = (char*)malloc(need);
+  if (!out) out = (char*)ps_malloc(need);
   if (!out) { esp_camera_fb_return(fb); Serial.println("[CAM] no mem for base64"); return false; }
 
   size_t olen = 0;
@@ -191,7 +150,7 @@ static bool captureB64Timed(String& b64Out, uint32_t& capMs, uint32_t& b64Ms,
 
   jpgBytes = fb->len;
   g_lastW = fb->width;  g_lastH = fb->height;
-  b64Out = String(out);                               // one extra copy (production parity)
+  b64Out = String(out);                               // one extra copy, on purpose
   free(out);
   esp_camera_fb_return(fb);
   b64Ms = msSince(t1);                                // encode + copy + buffer churn
@@ -199,17 +158,15 @@ static bool captureB64Timed(String& b64Out, uint32_t& capMs, uint32_t& b64Ms,
   return true;
 }
 
-// ── 7 · epoch timestamp (parity with cloud_link.h epochMs) ────────────
 static uint64_t epochMs() {
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
 }
-static bool timeSynced() { return time(nullptr) > 1700000000; }   // ~Nov 2023+
+static bool timeSynced() { return time(nullptr) > 1700000000; }   // ~Nov 2023+: SNTP has landed
 
-//  TLS-frAGMENT-SAFE write helper: loops over partial writes under a hard
-//  deadline (a 27 KB body crosses several mbedTLS records; write() may
-//  legally hand back fewer bytes than requested at each call).
+// Loop over partial writes under a hard deadline: a 27 KB body crosses several
+// mbedTLS records and write() may legally accept fewer bytes per call.
 static bool writeAllBytes(WiFiClientSecure& c, const char* p, size_t n, int64_t deadlineUs) {
   size_t done = 0;
   while (done < n) {
@@ -221,22 +178,19 @@ static bool writeAllBytes(WiFiClientSecure& c, const char* p, size_t n, int64_t 
   return true;
 }
 
-// ── 8 · one HTTPS PUT over a FRESH WiFiClientSecure, phase-timed ──────
-//       Returns the HTTP status code, or:
-//         -1  TCP+TLS connect failed   (the v1.4.1 failure signature)
-//         -2  short write (socket dropped mid-PUT)
-//         -3  timeout waiting for the response status line
+// One HTTPS PUT over a fresh WiFiClientSecure, phase-timed.
+// Returns the HTTP status, or -1 TCP+TLS connect failed, -2 short write (socket
+// dropped mid-PUT), -3 timeout waiting for the status line.
 static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
                        uint32_t& respMs, String& noteOut) {
   noteOut = "";
   int64_t t0 = esp_timer_get_time();
 
-  // FRESH context per upload — same memory pattern as the game's Gemini
-  // judge (geminiVisionCall()). Scope-end stop() frees the ~40-45 KB of
-  // mbedTLS buffers, and re-mallocing them every cycle is the stress.
+  // Fresh context per upload: stop() at scope end frees the ~40-45 KB of mbedTLS
+  // buffers, and re-allocating them every cycle is the stress being measured.
   WiFiClientSecure client;
-  client.setInsecure();                // encrypted, cert not pinned (prototype parity)
-  client.setTimeout(CONNECT_TIMEOUT_S);// seconds — handshake budget (cloud_link.h parity)
+  client.setInsecure();                // encrypted, cert not pinned (prototype)
+  client.setTimeout(CONNECT_TIMEOUT_S);// handshake budget, seconds
 
   if (!client.connect(FB_HOST.c_str(), 443)) {
     connMs  = msSince(t0);
@@ -246,8 +200,7 @@ static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
   int64_t t1 = esp_timer_get_time();
   connMs = msSince(t0);
 
-  // Minimal correct HTTP/1.1 request — same wire format HTTPClient would
-  // produce for http.sendRequest("PUT", body), minus the wrapper.
+  // Minimal HTTP/1.1 request, the same wire format HTTPClient would send for a PUT.
   String req = String("PUT ") + FB_PUT_PATH + " HTTP/1.1\r\n" +
                "Host: " + FB_HOST + "\r\n" +
                "Content-Type: application/json\r\n" +
@@ -265,8 +218,8 @@ static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
     return -2;
   }
 
-  // Read the status line byte-by-byte under a hard deadline (immune to
-  // Stream-timeout semantics differences between esp32 core versions).
+  // Read the status line byte by byte under a hard deadline, so Stream-timeout
+  // differences between esp32 core versions don't matter.
   const int64_t rDeadline = esp_timer_get_time() + (int64_t)RESPONSE_TIMEOUT_MS * 1000;
   String status;
   while (esp_timer_get_time() < rDeadline) {
@@ -276,7 +229,7 @@ static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
     else delayMicroseconds(250);
   }
 
-  // Slurp a bounded slice of the body — Firebase error JSON lives here.
+  // Read a bounded slice of the body; Firebase error JSON lives here.
   String rest;
   rest.reserve(256);
   while (esp_timer_get_time() < rDeadline && rest.length() < 200) {
@@ -289,7 +242,7 @@ static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
   respMs = msSince(t2);
   client.stop();
 
-  int code = -3;                                    // "HTTP/1.1 200 OK" → 200
+  int code = -3;                                    // "HTTP/1.1 200 OK" -> 200
   int sp = status.indexOf(' ');
   if (sp > 0) code = status.substring(sp + 1).toInt();
   if (code <= 0) {
@@ -300,11 +253,10 @@ static int httpsPutB64(const String& body, uint32_t& connMs, uint32_t& writeMs,
   return code;
 }
 
-// ── 9 · one full upload cycle: capture → base64 → JSON → PUT ──────────
-//  NOTE: the result lives in a GLOBAL, not in function signatures — the
-//  Arduino .ino preprocessor hoists auto-generated prototypes above type
-//  declarations, so user-defined types in .ino function signatures can
-//  break the build. Void functions + a global is bullet-proof.
+// One full cycle: capture -> base64 -> JSON -> PUT.
+// The result is a global, not a return type: the .ino preprocessor hoists generated
+// prototypes above type declarations, so user types in .ino signatures can break
+// the build.
 struct CycleResult {
   bool     captured = false, sent = false;
   uint32_t capMs = 0, b64Ms = 0, connMs = 0, writeMs = 0, respMs = 0, totalMs = 0;
@@ -313,15 +265,14 @@ struct CycleResult {
   String   note;
   uint32_t heapBefore = 0, heapAfter = 0, largestBefore = 0;
 };
-static CycleResult g_cycle;                 // reset at the start of every cycle
+static CycleResult g_cycle;
 
 static void doUploadCycle() {
   CycleResult& r = g_cycle;
-  r = CycleResult{};                        // wipe the previous cycle's metrics
+  r = CycleResult{};
   int64_t tCycle = esp_timer_get_time();
   r.heapBefore = ESP.getFreeHeap();
 
-  // 9.1 · capture + base64
   String b64;
   if (!captureB64Timed(b64, r.capMs, r.b64Ms, r.jpgBytes, r.b64Chars)) {
     r.heapAfter = ESP.getFreeHeap();
@@ -330,8 +281,7 @@ static void doUploadCycle() {
   }
   r.captured = true;
 
-  // 9.2 · JSON payload — byte-identical to production uploadPreviewFrame()
-  //       (cloud_link.h): {"img":"<b64>","ts":<epoch-ms>}
+  // payload {"img":"<b64>","ts":<epoch-ms>}
   uint64_t ts = timeSynced() ? epochMs() : (uint64_t)millis();
   if (!timeSynced() && !g_timeNoteShown) {
     Serial.println("[TIME] SNTP not synced yet — ts=millis() fallback (cosmetic only)");
@@ -339,22 +289,19 @@ static void doUploadCycle() {
   }
   String body = "{\"img\":\"" + b64 + "\",\"ts\":" + String((unsigned long long)ts) + "}";
   r.bodyBytes = body.length();
-  // NOTE: b64 stays alive until the function returns — the deliberate
-  // double-residency (b64 + body) is part of the memory stress being shown.
+  // b64 stays alive until return: holding b64 and body at once is part of the stress.
 
-  // 9.3 · the handshake-critical number, measured right before TLS:
-  //       largest CONTIGUOUS internal block (free heap can be fragmented).
+  // The number that decides the handshake, measured right before TLS: the largest
+  // contiguous internal block (free heap can be fragmented).
   r.largestBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-  // 9.4 · send it
   r.httpCode = httpsPutB64(body, r.connMs, r.writeMs, r.respMs, r.note);
   r.sent = (r.httpCode >= 200 && r.httpCode < 300);
 
   r.totalMs   = msSince(tCycle);
-  r.heapAfter = ESP.getFreeHeap();                  // TLS ctx + Strings released
+  r.heapAfter = ESP.getFreeHeap();                  // TLS context + Strings released
 }
 
-// ── 10 · telemetry printing ───────────────────────────────────────────
 static void ramWarnIfLow(uint32_t heap) {
   if (heap >= RAM_WARN_HEAP) return;
   Serial.println("[WARNING] RAM dangerously low - risk of heap collapse!");
@@ -415,7 +362,6 @@ static void printStats() {
                 g_paused ? "yes" : "no");
 }
 
-// ── 11 · serial command parser ────────────────────────────────────────
 static void printHelp() {
   Serial.println("[CMD] commands:");
   Serial.println("  slow   → UPLOAD_INTERVAL_MS = 1000 (1 FPS baseline)");
@@ -457,7 +403,6 @@ static void handleSerial() {
   }
 }
 
-// ── 12 · setup / loop ─────────────────────────────────────────────────
 static bool parseFirebaseUrl() {
   String u = FIREBASE_URL;
   int scheme = u.indexOf("://");
@@ -502,7 +447,7 @@ void setup() {
   Serial.printf("[CFG] target: PUT https://%s%s\n", FB_HOST.c_str(), FB_PUT_PATH);
 
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);                       // production wifiConnect parity
+  WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.printf("[WiFi] connecting to %s", WIFI_SSID);
   uint32_t t0 = millis();
@@ -516,7 +461,7 @@ void setup() {
   Serial.printf("\n[WiFi] connected, IP=%s RSSI=%d dBm\n",
                 WiFi.localIP().toString().c_str(), WiFi.RSSI());
 
-  configTime(0, 0, "pool.ntp.org", "time.google.com");   // UTC — epoch for "ts"
+  configTime(0, 0, "pool.ntp.org", "time.google.com");   // UTC, for the "ts" epoch
 
   if (!camInit()) {
     Serial.println("[TEST] halting — camera init failed");
@@ -540,7 +485,7 @@ void loop() {
   if (!g_paused && due) {
     g_lastCycleMs = now;
 
-    // ── memory guard, BEFORE touching camera or TLS ──────────────────
+    // memory guard before touching the camera or TLS
     uint32_t heap = ESP.getFreeHeap();
     if (heap < RAM_WARN_HEAP) {
       ramWarnIfLow(heap);
@@ -550,14 +495,14 @@ void loop() {
       doUploadCycle();
       printCycle();
       recordCode(g_cycle.httpCode);
-      ramWarnIfLow(g_cycle.heapAfter);        // the same guard, post-release
+      ramWarnIfLow(g_cycle.heapAfter);        // same guard, after release
       if (g_cycle.sent) g_okCount++; else g_failCount++;
       g_cycleMsSum += g_cycle.totalMs;
       g_windowCycles++;
     }
   }
 
-  // ── 5 s heartbeat: target vs achieved rate + memory watermarks ─────
+  // every 5 s: target vs achieved rate + memory watermarks
   if (g_windowStartMs == 0) g_windowStartMs = now;
   if (now - g_windowStartMs >= HEARTBEAT_MS) {
     uint32_t winSec = (now - g_windowStartMs) / 1000;

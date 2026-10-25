@@ -2,12 +2,12 @@
 #include "WiFi.h"
 #include "Audio.h"
 
-// Wi-Fi Credentials
+// I2S speaker test: streams internet radio through the MAX98357A.
+// Pass: music plays. Fill in WiFi credentials before flashing.
 const char* ssid     = "***********";
 const char* password = "***********";
 
-
-// Pin definitions matching step 3
+// MAX98357A wiring, same pins as the main firmware
 #define I2S_LRC  9
 #define I2S_BCLK 8
 #define I2S_DOUT 7
@@ -18,7 +18,6 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    // Connect to Wi-Fi
     WiFi.begin(ssid, password);
     Serial.print("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
@@ -27,22 +26,17 @@ void setup() {
     }
     Serial.println("\nWiFi Connected!");
 
-    // Configure I2S Speaker Output
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-    audio.setVolume(15); // Volume level 0-21
+    audio.setVolume(15); // 0..21
 
-    // Example HTTP stream URL or direct audio URL test
-    // To stream direct text-to-speech from Gemini, make your HTTP POST request 
-    // to Gemini REST API and pass the audio stream handle to audio.connecttohost()
     audio.connecttohost("http://stream.radioparadise.com/mp3-128"); 
 }
 
 void loop() {
-    // Keep the audio engine running continuously
     audio.loop();
 }
 
-// Optional audio callbacks for debugging
+// optional debug hook for stream info
 void audio_info(const char *info){
     Serial.print("info        "); Serial.println(info);
 }

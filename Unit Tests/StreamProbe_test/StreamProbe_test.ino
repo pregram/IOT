@@ -1,44 +1,26 @@
-// ═══════════════════════════════════════════════════════════════════════
-//  StreamProbe_test.ino — standalone camera-stream measurement sketch
-//  SnapRiddle architectural review deliverable (2026-09-23)
-// ─────────────────────────────────────────────────────────────────────
-//  PURPOSE
-//    Isolates and MEASURES the camera-stream solution under review, on a
-//    bare sketch, so the HLD numbers are reproducible without the game:
-//      · identical camera pipeline to production camera_srv.h
-//        (XIAO ESP32-S3 Sense · SVGA q12 · PSRAM double buffer)
-//      · identical MJPEG server  GET http://<ip>:81/stream
-//        (multipart/x-mixed-replace, 50 ms pacing → 20 fps ceiling)
-//      · snapshot endpoint       GET http://<ip>/capture
-//        with per-phase timing headers (X-T-Fbget-Ms, X-T-Send-Ms)
-//      · live probe endpoint     GET http://<ip>/status
-//        JSON {fw, fps, avgFrameBytes, frames, heap, minHeap, framesize}
-//      · 5-second serial heartbeat: measured FPS, mean frame bytes,
-//        free heap, min-ever heap  → the numbers cited in the HLD §5.4
-//
-//  EXPECTED RESULT (matches the claims in the HLD document)
-//    · ≥ 15 FPS to a LAN browser at SVGA q12
-//    · SVGA JPEG frames ≈ 25–45 KB (scene-dependent)
-//    · free heap stable ±2 KB across minutes of streaming (no leak)
-//    · the same server pattern the game uses — no TLS anywhere on the
-//      stream path (TLS termination analysis lives in the HLD, §4)
-//
-//  BOARD SETTINGS (identical to FLASHING_GUIDE.md §3)
-//    XIAO_ESP32S3 · PSRAM: OPI PSRAM · Flash 8MB · partition 8M with spiffs
-// ═══════════════════════════════════════════════════════════════════════
+// Camera stream measurement: the firmware's camera pipeline (SVGA q12, PSRAM double
+// buffer) and MJPEG server on a bare sketch with no cloud traffic.
+//   GET http://<ip>:81/stream   MJPEG, 50 ms pacing (20 fps ceiling)
+//   GET http://<ip>/capture     one JPEG with timing headers X-T-Fbget-Ms, X-T-Send-Ms
+//   GET http://<ip>/status      JSON {fw, fps, avgFrameBytes, frames, heap, minHeap, framesize}
+// A 5 s serial heartbeat prints measured FPS, mean frame size and heap.
+// Expected: >= 15 FPS to a LAN browser, SVGA frames ~25-45 KB, free heap stable
+// within +/-2 KB over minutes of streaming. dual-path-probe.html in this folder
+// compares this local stream against the cloud path.
+// Board: XIAO_ESP32S3, PSRAM OPI, 8MB with spiffs.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_http_server.h>
 #include <esp_camera.h>
 #include <esp_timer.h>
 
-// ── 1 · Wi-Fi credentials — EDIT BEFORE FLASHING ──────────────────────
+// WiFi credentials: edit before flashing
 static const char* WIFI_SSID     = "*";
 static const char* WIFI_PASSWORD = "*";
 
 #define PROBE_FW_VERSION "probe-1.0"
 
-// ── 2 · XIAO ESP32-S3 Sense camera pin map (verified, pins_board.h) ───
+// XIAO ESP32-S3 Sense camera pins (same as the firmware's pins_board.h)
 #define PWDN_GPIO_NUM  -1
 #define RESET_GPIO_NUM -1
 #define XCLK_GPIO_NUM  10
@@ -56,9 +38,9 @@ static const char* WIFI_PASSWORD = "*";
 #define HREF_GPIO_NUM  47
 #define PCLK_GPIO_NUM  13
 
-// ── 3 · shared probe statistics (written by httpd tasks, read by loop) ─
-static volatile uint32_t g_frames     = 0;   // MJPEG frames actually sent
-static volatile uint64_t g_bytesTotal = 0;   // MJPEG payload bytes sent
+// written by the httpd tasks, read by loop()
+static volatile uint32_t g_frames     = 0;
+static volatile uint64_t g_bytesTotal = 0;
 static volatile uint32_t g_minHeap    = UINT32_MAX;
 static volatile bool    g_streaming   = false;
 
@@ -67,7 +49,7 @@ static inline void bumpHeapWatermark() {
   if (h < g_minHeap) g_minHeap = h;
 }
 
-// ── 4 · camera init — same config as production camera_srv.h camInit ──
+// same config as the firmware's camInit()
 static bool camInit() {
   camera_config_t config = {};
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -84,7 +66,7 @@ static bool camInit() {
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode    = CAMERA_GRAB_LATEST;
   config.fb_location  = CAMERA_FB_IN_PSRAM;
-  config.frame_size   = FRAMESIZE_SVGA;      // web-app default
+  config.frame_size   = FRAMESIZE_SVGA;
   config.jpeg_quality = 12;
   config.fb_count     = 2;
 
@@ -103,7 +85,6 @@ static bool camInit() {
   return true;
 }
 
-// ── 5 · GET /capture — single JPEG with per-phase timing headers ──────
 static esp_err_t capture_handler(httpd_req_t* req) {
   int64_t t0 = esp_timer_get_time();
   camera_fb_t* fb = esp_camera_fb_get();
@@ -118,13 +99,13 @@ static esp_err_t capture_handler(httpd_req_t* req) {
   esp_err_t res = httpd_resp_send(req, (const char*)fb->buf, fb->len);
   esp_camera_fb_return(fb);
   snprintf(hdr, sizeof(hdr), "%lld", (long long)((esp_timer_get_time() - t0) / 1000));
-  httpd_resp_set_hdr(req, "X-T-Send-Ms", hdr);   // informational only (set post-send)
+  httpd_resp_set_hdr(req, "X-T-Send-Ms", hdr);   // informational only (set after the send)
   Serial.printf("[PROBE] /capture %u B, fb_get %lld ms\n",
                 (unsigned)fb->len, (long long)((t1 - t0) / 1000));
   return res;
 }
 
-// ── 6 · GET /status — machine-readable probe (the HTML probe polls it) ─
+// polled by dual-path-probe.html
 static esp_err_t status_handler(httpd_req_t* req) {
   static uint32_t s_lastFrames = 0;
   static uint64_t s_lastMs = 0;
@@ -152,7 +133,7 @@ static esp_err_t status_handler(httpd_req_t* req) {
   return httpd_resp_send(req, json, strlen(json));
 }
 
-// ── 7 · GET /stream — MJPEG, byte-identical pattern to camera_srv.h ───
+// same streaming loop as the firmware's camera_srv.h
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 static const char* _STREAM_BOUNDARY     = "\r\n--" PART_BOUNDARY "\r\n";
@@ -185,20 +166,20 @@ static esp_err_t stream_handler(httpd_req_t* req) {
       int64_t dt = esp_timer_get_time() - t0;
       g_frames++;
       g_bytesTotal += jpg_len;
-      if ((g_frames % 100) == 0)                       // per-frame log sample
+      if ((g_frames % 100) == 0)
         Serial.printf("[PROBE] frame %u: %u B, pipeline %lld ms\n",
                       (unsigned)g_frames, (unsigned)jpg_len, (long long)(dt / 1000));
       esp_camera_fb_return(fb);
       fb = NULL;
     }
     if (res != ESP_OK) { Serial.println("[PROBE] stream client left"); break; }
-    vTaskDelay(pdMS_TO_TICKS(50));   // ~20 fps ceiling — identical to production
+    vTaskDelay(pdMS_TO_TICKS(50));   // ~20 fps ceiling, same as the firmware
   }
   g_streaming = false;
   return res;
 }
 
-// ── 8 · server boot (same two-httpd layout as production) ─────────────
+// same two-server layout as the firmware (:80 control, :81 stream)
 static httpd_handle_t ctrl_httpd  = NULL;
 static httpd_handle_t stream_httpd = NULL;
 
@@ -222,7 +203,6 @@ static void startServers() {
   }
 }
 
-// ── 9 · setup / loop — loop prints the 5 s heartbeat the HLD cites ────
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -232,7 +212,7 @@ void setup() {
   Serial.println("══════════════════════════════════════════");
 
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);                       // same as production wifiConnect
+  WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.printf("[WiFi] connecting to %s", WIFI_SSID);
   uint32_t t0 = millis();

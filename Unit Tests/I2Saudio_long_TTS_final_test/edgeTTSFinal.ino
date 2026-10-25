@@ -1,13 +1,11 @@
 /*
-  edgeTTS.ino — ESP32-S3 Local TTS Player (stable working build)
-  ---------------------------------------------------------------
-  Flow: text <= GET_URL_BUDGET (encoded) -> streaming GET via local relay
-        else                             -> Docker POST fallback (buffered)
-        both down                        -> queue in RAM, auto-retry 10 s
-  End-of-speech: decode-time freeze detection (fires <= ~3 s after last word).
-  Serial cmds: '+' '-' vol N voice X lang en|he|ar speed X stop status help
-  Requires: ArduinoJson 7.x, ESP32-audioI2S, tts_relay.py :5051 (+ Docker :5050
-  only if you want the long-text fallback).
+  Final TTS test: the setup the game uses, plus the long-text fallback.
+  Text up to GET_URL_BUDGET (URL-encoded) streams from tts_relay.py (:5051);
+  longer text goes to the Docker openai-edge-tts POST fallback (:5050, buffered);
+  with both down, lines queue in RAM and retry every 10 s.
+  End of speech is detected when the decoded time stops moving (<= ~3 s after the
+  last word). Serial: '+' '-' | vol N | voice X | lang en|he|ar | speed X | stop |
+  status | help. Setup and measured limits: README.md in this folder.
 */
 #include <Arduino.h>
 #include <WiFi.h>
@@ -16,7 +14,7 @@
 #include <ArduinoJson.h>
 #include "Audio.h"
 
-// ------------------------- USER CONFIG -------------------------
+// User config
 static const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 static const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 static const char* TTS_HOST_IP   = "192.168.1.230";
@@ -36,9 +34,8 @@ static const int    DEFAULT_VOLUME = 17;      // 0 .. 21
 #define I2S_BCLK 8
 #define I2S_LRC  9
 
-static const size_t GET_URL_BUDGET = 1500;    // library hard cap 2048 (incl. overhead)
+static const size_t GET_URL_BUDGET = 1500;    // ESP32-audioI2S caps a URL at 2048 chars including overhead
 
-// ------------------------- GLOBALS -----------------------------
 static Audio audio;
 static String serialBuffer;
 static bool   busy       = false;
@@ -53,19 +50,17 @@ static int    currentVolume = DEFAULT_VOLUME;
 
 static const char* TTS_FILE[2] = { "/tts_a.mp3", "/tts_b.mp3" };
 
-// ---- offline queue ----
+// offline queue
 #define QUEUE_MAX 3
 static String qText[QUEUE_MAX], qVoice[QUEUE_MAX];
 static int    qCount = 0;
 static uint32_t lastRetryMs = 0;
 
-// ------------------- Library event callback --------------------
 void my_audio_info(Audio::msg_t m) {
   if (m.e == Audio::evt_eof)  { speaking = false; Serial.println("[TTS] speech ended (file)."); }
   else if (m.e == Audio::evt_info) Serial.printf("[Audio Info] %s\n", m.msg);
 }
 
-// --------------------------- Helpers ---------------------------
 static String urlEncode(const String& in) {
   static const char* hex = "0123456789ABCDEF";
   String out; out.reserve(in.length() * 3 + 1);
@@ -78,7 +73,7 @@ static String urlEncode(const String& in) {
   return out;
 }
 
-// ArduinoJson handles all escaping (quotes, newlines, UTF-8 passthrough).
+// ArduinoJson handles the escaping (quotes, newlines, UTF-8 passthrough).
 static String buildRequestBody(const String& text, const String& voice, float speed) {
   JsonDocument doc;
   doc["model"] = "tts-1";
@@ -100,7 +95,6 @@ static void stopAudioSafely() {
   }
 }
 
-// ------------------- Live settings setters ---------------------
 static void setSpeakerVolume(int v) {
   if (v < 0) v = 0; if (v > 21) v = 21;
   currentVolume = v;
@@ -119,7 +113,6 @@ static void setSpeed(float s) {
   Serial.printf("[SET] speed=%.2f (applies to next utterance)\n", currentSpeed);
 }
 
-// ----------------------- offline queue -------------------------
 static void enqueuePending(const String& t, const String& v) {
   if (qCount == QUEUE_MAX) {
     for (int i = 1; i < QUEUE_MAX; ++i) { qText[i-1] = qText[i]; qVoice[i-1] = qVoice[i]; }
@@ -130,7 +123,7 @@ static void enqueuePending(const String& t, const String& v) {
   Serial.printf("[Q] text queued (%d pending) - retry every 10 s.\n", qCount);
 }
 
-// POST text -> stream MP3 into LittleFS (Docker fallback).
+// POST text -> stream the MP3 into LittleFS (Docker fallback).
 static bool downloadSpeech(const String& text, const String& voice, float speed, const char* outPath) {
   if (WiFi.status() != WL_CONNECTED) { Serial.println("[TTS] Wi-Fi down."); return false; }
   String url  = "http://" + String(TTS_HOST_IP) + ":" + String(TTS_PORT) + "/v1/audio/speech";
@@ -188,7 +181,6 @@ static bool downloadSpeech(const String& text, const String& voice, float speed,
   return total > 0;
 }
 
-// --------------------------- Speak -----------------------------
 static bool speak(const String& text, const String& voice = "", float speed = -1.0f,
                   int volume = -1, bool queueOnFail = true) {
   if (text.isEmpty() || busy) return false;
@@ -234,7 +226,6 @@ static bool speak(const String& text, const String& voice = "", float speed = -1
   return false;
 }
 
-// --------------------- Serial command layer --------------------
 static void printHelp() {
   Serial.println("[SYS] cmds: '+'/'-' volume | 'vol' show | 'vol 0..21' set | "
                  "'voice <name>' | 'lang en|he|ar' | 'speed 0.5..2.0' | "
@@ -271,7 +262,6 @@ static void handleSerialLine(const String& raw) {
   speak(line, currentVoice, currentSpeed);
 }
 
-// --------------------------- Setup -----------------------------
 void setup() {
   Audio::audio_info_callback = my_audio_info;
   Serial.setRxBufferSize(2048);
@@ -307,11 +297,10 @@ void setup() {
   Serial.println("[SYS] Ready. Type text + Enter.");
 }
 
-// --------------------------- Loop ------------------------------
 void loop() {
   audio.loop();
 
-  // ---- end-of-speech: decoded-time freeze ----
+  // end of speech: decoded time stopped moving
   if (speaking) {
     uint32_t cur = audio.getAudioCurrentTime();
     if (cur != lastCur) { lastCur = cur; curChangedMs = millis(); audioStarted = true; }
@@ -322,7 +311,7 @@ void loop() {
     }
   }
 
-  // ---- retry queued text ----
+  // retry queued text
   if (!busy && qCount > 0 && millis() - lastRetryMs > 10000) {
     lastRetryMs = millis();
     Serial.printf("[Q] retrying (%d queued)...\n", qCount);

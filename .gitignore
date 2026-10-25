@@ -1,1 +1,21 @@
-ESP32/SECRETS.h
+# Web app dependencies and build output
+web_app/node_modules/
+web_app/.next/
+web_app/out/
+web_app/next-env.d.ts
+web_app/*.tsbuildinfo
+web_app/.env*
+
+# TTS relay virtual environment
+tts_relay/venv/
+**/__pycache__/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# A filled-in secrets file must never be committed. ESP32/SnapRiddle_HW/SECRETS.h
+# is tracked as an empty template; keep your real copy outside the repo or use
+# `git update-index --skip-worktree ESP32/SnapRiddle_HW/SECRETS.h` before editing it.
+*.secrets.h

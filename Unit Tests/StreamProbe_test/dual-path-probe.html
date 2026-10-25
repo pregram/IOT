@@ -60,7 +60,7 @@
 <body>
 <header>
   <h1>SNAPRIDDLE · DUAL-PATH CAMERA PROBE</h1>
-  <p>Evidence harness for the architectural review — renders BOTH delivery systems side by side</p>
+  <p>Evidence harness for the architectural review - renders BOTH delivery systems side by side</p>
   <span id="originTag" class="origin">origin: …</span>
 </header>
 
@@ -72,14 +72,14 @@
 <div class="grid">
   <!-- PATH 1 · direct MJPEG (LAN HTTP) -->
   <section class="panel">
-    <h2>PATH 1 · DIRECT MJPEG — http://&lt;ip&gt;:81/stream <span id="p1bar" class="bar">idle</span></h2>
+    <h2>PATH 1 · DIRECT MJPEG - http://&lt;ip&gt;:81/stream <span id="p1bar" class="bar">idle</span></h2>
     <div class="feed"><img id="stream" alt="Direct MJPEG stream" /></div>
     <div class="stats" id="p1stats">Enter the board IP and connect.</div>
   </section>
 
   <!-- PATH 2 · snapshot relay simulation (the cloud-relay mechanics, LAN-isolated) -->
   <section class="panel">
-    <h2>PATH 2 · SNAPSHOT RELAY (mechanics) — /capture poll @ 800 ms <span id="p2bar" class="bar">idle</span></h2>
+    <h2>PATH 2 · SNAPSHOT RELAY (mechanics) - /capture poll @ 800 ms <span id="p2bar" class="bar">idle</span></h2>
     <div class="feed"><img id="snap" alt="Relay-style snapshot" /></div>
     <div class="stats" id="p2stats">Simulates the production cloud-relay cadence against the LAN snapshot endpoint.</div>
   </section>
@@ -88,7 +88,7 @@
 <p class="note">
   PATH 2 isolates the relay <em>mechanics</em> (capture → transport → render) on the LAN; in production the middle leg
   is the Firebase RTDB TLS relay (board → cloud → browser) which adds ~0.2 s upload with the v1.4.0 warm TLS session.
-  Open this page over HTTPS from a public origin to reproduce the browser mixed-content block on PATH 1 — that is the
+  Open this page over HTTPS from a public origin to reproduce the browser mixed-content block on PATH 1 - that is the
   documented behaviour under review (auto-upgrade to https:// on a TLS-less listener → 0 fps, not "lag").
 </p>
 
@@ -111,7 +111,7 @@
     streamImg.onerror = () => {
       p1bar.textContent = 'BLOCKED (0 fps)';
       p1bar.style.color = '#fb7185';
-      p1stats.innerHTML = '<span class="bad">✗ the browser upgraded http:// → https:// and the board has no TLS listener — connection failed. ' +
+      p1stats.innerHTML = '<span class="bad">✗ the browser upgraded http:// → https:// and the board has no TLS listener - connection failed. ' +
         'This is the documented mixed-content behaviour, NOT stream lag.</span>';
     };
     streamImg.src = 'http://' + ip + ':81/stream?t=' + Date.now();
@@ -140,7 +140,7 @@
       } catch (e) {
         p2bar.textContent = 'unreachable';
         p2bar.style.color = '#fbbf24';
-        p2stats.innerHTML = '<span class="warn">snapshot fetch failed (' + e.message + ') — is the IP right and the probe page on the same LAN?</span>';
+        p2stats.innerHTML = '<span class="warn">snapshot fetch failed (' + e.message + ') - is the IP right and the probe page on the same LAN?</span>';
       }
     }, 800);
   }
@@ -155,7 +155,7 @@
       p1stats.innerHTML = 'fw <b>' + s.fw + '</b> · board-measured stream fps <b>' + s.fps + '</b> · avg frame <b>' +
         s.avgFrameBytes + ' B</b> · heap <b>' + s.heap + '</b> · min heap <b>' + s.minHeap + '</b>';
     } catch {
-      p1stats.innerHTML = '<span class="warn">/status unreachable (this is also expected on HTTPS pages — mixed content blocks fetch())</span>';
+      p1stats.innerHTML = '<span class="warn">/status unreachable (this is also expected on HTTPS pages - mixed content blocks fetch())</span>';
     }
     setTimeout(() => pollStatus(ip), 2000);
   }

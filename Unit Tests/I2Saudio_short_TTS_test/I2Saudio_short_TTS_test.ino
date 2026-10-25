@@ -21,8 +21,8 @@ void setup() {
     WiFi.begin(ssid.c_str(), password.c_str());
     while (WiFi.status() != WL_CONNECTED) delay(1500);
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-    audio.setVolume(14); // default 0...21
-    audio.connecttospeech("testing out a sample tts audio", "en"); // Google TTS
+    audio.setVolume(14); // 0..21
+    audio.connecttospeech("testing out a sample tts audio", "en"); // Google TTS, short text only
 }
 
 void loop() {

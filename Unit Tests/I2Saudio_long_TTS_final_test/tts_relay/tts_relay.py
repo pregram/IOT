@@ -1,4 +1,4 @@
-"""tts_relay.py v3 — GET /tts.mp3?text=... -> native edge-tts MP3 stream.
+"""tts_relay.py v3 - GET /tts.mp3?text=... -> native edge-tts MP3 stream.
 No dependency on the Docker container for the streaming path.
 The Docker openai-edge-tts (POST, port 5050) remains the sketch's fallback."""
 import edge_tts

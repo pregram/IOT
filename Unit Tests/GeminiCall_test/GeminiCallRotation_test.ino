@@ -1,10 +1,8 @@
 /*
-  GeminiKeyRotation.ino — Test 2: key+model round-robin.
-  Request order: key1+3.5, key1+3.6, key2+3.5, key2+3.6, ... wrapping.
-  Quota is per key per day; rotation evens out burst limits and makes
-  'r' automatically land on the next key after a 429.
-  Fill up to 5 keys (set N_KEYS to the count you use). Requires ArduinoJson 7.x.
-  If HTTP 404 "model not found": verify exact ids at
+  Gemini key rotation test: requests walk key1+m1, key1+m2, key2+m1, ... and wrap.
+  Quota is per key per day, so rotating evens out burst limits, and 'r' after a 429
+  automatically lands on the next key. Fill up to 5 keys and set N_KEYS.
+  HTTP 404 "model not found" usually means a stale id; list valid ids at
   https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
 */
 #include <Arduino.h>
@@ -36,7 +34,6 @@ static int geminiAsk(const char* apiKey, const char* model, const String& prompt
   replyOut = "";
   if (WiFi.status() != WL_CONNECTED) { replyOut = "[error: Wi-Fi down]"; return -1; }
 
-  // ---- request built entirely by ArduinoJson ----
   JsonDocument doc;
   doc["systemInstruction"]["parts"][0]["text"] = SYS_PROMPT;
   doc["contents"][0]["role"]  = "user";
@@ -50,7 +47,7 @@ static int geminiAsk(const char* apiKey, const char* model, const String& prompt
                model + ":generateContent?key=" + apiKey;
 
   WiFiClientSecure client;
-  client.setInsecure();                    // encrypted; cert not verified (prototype)
+  client.setInsecure();                    // encrypted but the cert is not verified (prototype)
   HTTPClient http;
   http.setReuse(false);
   http.setTimeout(25000);

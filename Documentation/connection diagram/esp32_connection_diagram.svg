@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2563eb"/></marker>
+</defs>
+<style>
+  text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}
+  .title{font-size:28px;font-weight:700}
+  .sub{font-size:16px;fill:#52647a}
+  .head{font-size:20px;font-weight:700}
+  .label{font-size:16px}
+  .pin{font-size:16px;font-weight:700;fill:#ffffff}
+  .note{font-size:14px;fill:#52647a}
+  .sig{fill:none;stroke:#2563eb;stroke-width:3}
+  .pwr{fill:none;stroke:#dc2626;stroke-width:3}
+  .gnd{fill:none;stroke:#334155;stroke-width:3}
+  .spk{fill:none;stroke:#7c3aed;stroke-width:3}
+</style>
+<rect width="1400" height="900" fill="#f8fafc"/>
+<text x="40" y="50" class="title">SnapRiddle hardware node: connection diagram</text>
+<text x="40" y="80" class="sub">Seeed XIAO ESP32-S3 Sense. GPIO numbers from parameters.h and pins_board.h (XIAO pad names in brackets).</text>
+
+<!-- XIAO board -->
+<rect x="520" y="150" width="360" height="470" rx="22" fill="#172b4d"/>
+<text x="700" y="195" text-anchor="middle" style="fill:#fff;font-size:26px;font-weight:700">XIAO ESP32-S3</text>
+<text x="700" y="222" text-anchor="middle" style="fill:#bdcce0;font-size:17px">Sense (8 MB flash, 8 MB OPI PSRAM)</text>
+
+<!-- left pins -->
+<rect x="520" y="270" width="150" height="34" rx="6" fill="#2563eb"/><text x="532" y="293" class="pin">GPIO 7 (D8)</text>
+<rect x="520" y="320" width="150" height="34" rx="6" fill="#2563eb"/><text x="532" y="343" class="pin">GPIO 8 (D9)</text>
+<rect x="520" y="370" width="150" height="34" rx="6" fill="#2563eb"/><text x="532" y="393" class="pin">GPIO 9 (D10)</text>
+<rect x="520" y="420" width="150" height="34" rx="6" fill="#dc2626"/><text x="532" y="443" class="pin">3V3</text>
+<rect x="520" y="470" width="150" height="34" rx="6" fill="#334155"/><text x="532" y="493" class="pin">GND</text>
+
+<!-- right pins -->
+<rect x="730" y="270" width="150" height="34" rx="6" fill="#2563eb"/><text x="742" y="293" class="pin">GPIO 6 (D5)</text>
+<rect x="730" y="320" width="150" height="34" rx="6" fill="#334155"/><text x="742" y="343" class="pin">GPIO 5 (D4)</text>
+
+<!-- USB-C -->
+<rect x="640" y="590" width="120" height="30" rx="6" fill="#64748b"/><text x="700" y="611" text-anchor="middle" class="pin">USB-C</text>
+
+<!-- MAX98357A -->
+<rect x="40" y="240" width="340" height="290" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<text x="58" y="272" class="head">MAX98357A I2S amplifier</text>
+<text x="58" y="318" class="note">I2S audio in, class D out</text>
+<text x="322" y="293" class="label" text-anchor="end">DIN</text>
+<text x="322" y="343" class="label" text-anchor="end">BCLK</text>
+<text x="322" y="393" class="label" text-anchor="end">LRC</text>
+<text x="322" y="443" class="label" text-anchor="end">VIN</text>
+<text x="322" y="493" class="label" text-anchor="end">GND</text>
+<text x="58" y="353" class="note">I2S_DOUT = 7</text>
+<text x="58" y="373" class="note">I2S_BCLK = 8</text>
+<text x="58" y="393" class="note">I2S_LRC = 9</text>
+<path d="M330 287H520" class="sig" marker-end="url(#arr)"/>
+<path d="M330 337H520" class="sig" marker-end="url(#arr)"/>
+<path d="M330 387H520" class="sig" marker-end="url(#arr)"/>
+<path d="M520 437H330" class="pwr"/>
+<path d="M520 487H330" class="gnd"/>
+
+<!-- speaker -->
+<rect x="40" y="600" width="340" height="120" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<text x="58" y="640" class="head">Speaker</text>
+<text x="58" y="665" class="note">wired to the amplifier's + and - outputs</text>
+<path d="M150 530V600" class="spk"/>
+<path d="M270 530V600" class="spk"/>
+<text x="160" y="570" class="label">+</text>
+<text x="280" y="570" class="label">-</text>
+
+<!-- button -->
+<rect x="1010" y="240" width="360" height="150" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<text x="1028" y="275" class="head">Tactile push button</text>
+<text x="1028" y="300" class="note">leg 1 to GPIO 6 (BTN_PIN, internal pull-up)</text>
+<text x="1028" y="320" class="note">leg 2 to GPIO 5 (BTN_GND, driven LOW)</text>
+<text x="1028" y="345" class="note">reads LOW while pressed</text>
+<text x="1028" y="365" class="note">single, double and long press</text>
+<path d="M880 287H1010" class="sig"/>
+<path d="M880 337H1010" class="gnd"/>
+
+<!-- camera -->
+<rect x="1010" y="430" width="360" height="290" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<text x="1028" y="465" class="head">Camera (Sense board)</text>
+<text x="1028" y="488" class="note">on-board connector, no wires to add</text>
+<text x="1028" y="515" class="label">XCLK 10 · PCLK 13</text>
+<text x="1028" y="540" class="label">VSYNC 38 · HREF 47</text>
+<text x="1028" y="565" class="label">SIOD (SDA) 40 · SIOC (SCL) 39</text>
+<text x="1028" y="590" class="label">Y2 15 · Y3 17 · Y4 18 · Y5 16</text>
+<text x="1028" y="615" class="label">Y6 14 · Y7 12 · Y8 11 · Y9 48</text>
+<text x="1028" y="640" class="label">PWDN -1 · RESET -1 (not used)</text>
+<text x="1028" y="670" class="note">8-bit DVP bus, numbers are GPIOs</text>
+<path d="M880 560H1010" class="sig" stroke-dasharray="8 6"/>
+<text x="900" y="550" class="note">internal</text>
+
+<!-- power -->
+<rect x="520" y="740" width="360" height="110" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<text x="540" y="775" class="head">USB-C cable</text>
+<text x="540" y="800" class="note">power + flashing + Serial Monitor (115200)</text>
+<text x="540" y="822" class="note">5V in, regulated to 3.3V on the XIAO</text>
+<path d="M700 620V740" class="pwr"/>
+
+<!-- legend -->
+<rect x="40" y="790" width="14" height="4" fill="#2563eb"/><text x="62" y="797" class="note">signal</text>
+<rect x="40" y="812" width="14" height="4" fill="#dc2626"/><text x="62" y="819" class="note">power</text>
+<rect x="40" y="834" width="14" height="4" fill="#334155"/><text x="62" y="841" class="note">ground / ground return</text>
+<rect x="40" y="856" width="14" height="4" fill="#7c3aed"/><text x="62" y="863" class="note">speaker</text>
+</svg>
